@@ -81,7 +81,7 @@ end
 
 --robot库移动函数重定向
 local position,direction = {x=0,y=1,z=0},{x=0,z=-1}
-local f, u, d, l, r = robot.forward, robot.up, robot.down, robot.turnLeft, robot.turnRight
+local f, b, u, d, l, r = robot.forward, robot.back, robot.up, robot.down, robot.turnLeft, robot.turnRight
 function M.up()
     while not u() do
         os.sleep(0)
@@ -101,21 +101,35 @@ function M.forward()
 	position.x=position.x+direction.x
 	position.z=position.z+direction.z
 end
-robot.forward, robot.up, robot.down = M.forward, M.up, M.down
-robot.turnLeft, robot.turnRight, robot.turnAround = nil, nil, nil --阻止外部调用
+function M.back()
+    while not b() do
+        os.sleep(0)
+    end
+    position.x = position.x - direction.x
+    position.z = position.z - direction.z
+end
+robot.forward, robot.back, robot.up, robot.down = M.forward, M.back, M.up, M.down
+function M.turnLeft()
+    l()
+    direction.x, direction.z = -direction.z, direction.x
+end
+function M.turnRight()
+    r()
+    direction.x, direction.z = direction.z, -direction.x
+end
+robot.turnLeft, robot.turnRight = M.turnLeft, M.turnRight
 function M.turnTo(targetX, targetZ)
     if math.abs(targetX) + math.abs(targetZ) ~= 1 or targetX * targetZ ~= 0 then
         error("错误的调用bot.turnTo()")
     end
 	if direction.x ~= targetX or direction.z ~= targetZ then
 		if (direction.x ~= 0 and direction.x+targetX == 0) or (direction.z ~= 0 and direction.z + targetZ == 0) then
-			r() r()
+			M.turnRight() M.turnRight()
 		elseif direction.x == targetZ and direction.z + targetX == 0 then
-			l()
+			M.turnLeft()
 		elseif direction.z == targetX and direction.x + targetZ == 0 then
-			r()
+			M.turnRight()
 		end
-		direction.x, direction.z = targetX, targetZ
 	end
 end
 function M.moveXZTo(targetX, targetZ)
@@ -418,4 +432,3 @@ inventoryName
 基因转换机"tile.gendustry.transposer"
 基因复制机"tile.gendustry.replicator"
 ]]
---bot.checkItem({tag=beeData.getDroneTag("forestry.speciesCommon")},1)

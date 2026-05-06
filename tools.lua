@@ -6,7 +6,18 @@ local doUntil = require("doUntil")
 local robot = require("robot")
 
 function M.swingDown(tool)
-    if tool == "bucket" then
+    if tool == "cell" then
+        if not bot.inventory[0] or bot.inventory[0].name ~= "minecraft:bucket" then
+            robot.select(
+                doUntil(function()
+                    return bot.checkItem({name = "IC2:itemCellEmpty", damage = 0}, 1)
+                end, "缺少空单元")
+            )
+            bot.equip()
+        end
+        robot.useDown()
+        bot.inventory[0] = nil
+    elseif tool == "bucket" then
         if not bot.inventory[0] or bot.inventory[0].name ~= "minecraft:bucket" then
             robot.select(
                 doUntil(function()
@@ -16,6 +27,7 @@ function M.swingDown(tool)
             bot.equip()
         end
         robot.useDown()
+        bot.inventory[0] = nil
     elseif tool == nil then
         if not bot.inventory[0] or bot.inventory[0].name ~= "gregtech:gt.Tool_Vajra" then
             robot.select(
@@ -43,7 +55,34 @@ function M.placeDown(item)
         error("错误的调用tools.placeDown()")
     end
     if item.tool then
-        if item.tool == "bucket" then
+        if item.tool == "cell" then
+            robot.select(
+                doUntil(function()
+                    return bot.checkItem({name = item.name, damage = item.damage}, 1)
+                end, "缺少"..(item.label or item.name))
+            )
+            bot.down()
+            local suc = robot.detect()
+            if suc then
+                for i = 1,3 do
+                    bot.turnLeft()
+                    suc = robot.detect()
+                    if not suc then
+                        break
+                    end
+                end
+            end
+            if suc then
+                error("放置"..(item.label or item.name or "").."失败")
+            end
+            bot.forward()
+            bot.turnRight()
+            bot.turnRight()
+            robot.placeDown()--是的，IC2单元的放置逻辑就是这么神秘
+            bot.up()
+            bot.forward()
+            bot.inventory[0] = nil
+        elseif item.tool == "bucket" then
             robot.select(
                 doUntil(function()
                     return bot.checkItem({name = item.name, damage = item.damage}, 1)
@@ -51,6 +90,7 @@ function M.placeDown(item)
             )
             bot.equip()
             robot.useDown()
+            bot.inventory[0] = {name = "minecraft:bucket"}
         else
             error("错误的调用tools.placeDown()")
         end
