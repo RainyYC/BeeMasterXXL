@@ -87,12 +87,12 @@ function M.mutate(princessSlot, droneSlot, targetSpecies, mutation)--单步突�
                 local d1, d2 = bot.inventory[slot].species[1], bot.inventory[slot].species[2]
                 if d1 == targetSpecies or d2 == targetSpecies then
                     table.insert(targetBeeSlots, slot)
+                elseif (d1 == mutation.parents[1] and d2 == mutation.parents[2]) or (d1 == mutation.parents[2] and d2 == mutation.parents[1]) then
+                    table.insert(allele12, slot)
                 elseif d1 == mutation.parents[1] and d2 == mutation.parents[1] then
                     table.insert(allele11, slot)
                 elseif d1 == mutation.parents[2] and d2 == mutation.parents[2] then
                     table.insert(allele22, slot)
-                elseif (d1 == mutation.parents[1] and d2 == mutation.parents[2]) or (d1 == mutation.parents[2] and d2 == mutation.parents[1]) then
-                    table.insert(allele12, slot)
                 else
                     robot.select(slot)
                     robot.dropUp()
@@ -781,7 +781,7 @@ function M.newSpecies(species, mutation)--突变新品种并优化基因
             confirmMutation()
         end
     end
-    --初始化
+    --获取亲本公主蜂与雄蜂
     local previousLabel = bot.inventoryLabel
     bot.inventoryLabel = "newSpecies:"..species
     local allele1Slot, allele2Slot, assistantDroneSlot, princessSlot
@@ -809,10 +809,9 @@ function M.newSpecies(species, mutation)--突变新品种并优化基因
         if isAllele1Templated then
             return {"purify(2)"}, true
         end
-        return {"purify(2)", "purify(1)"}, false
+        return mutation.parents[1] == mutation.parents[2] and {"purify(1)"} or {"purify(2)", "purify(1)"}, false
     end
     ::GET_PARENT_BEES::
-    --获取亲本公主蜂与雄蜂
     assistantDroneSlot = M.getAssistantDrones()--[[@as number]]
     princessSlot = bot.checkItem({name="Forestry:beePrincessGE",tag=beeData.getPrincessTag(true)}, 1)
     if not princessSlot then
@@ -847,13 +846,17 @@ function M.newSpecies(species, mutation)--突变新品种并优化基因
         end
     end
     if exchanged then
-        if allele2Slot ~= assistantDroneSlot then
+        if mutation.parents[1] == mutation.parents[2] then
+            allele1Slot = allele2Slot
+        elseif allele2Slot ~= assistantDroneSlot then
             robot.select(allele2Slot)
             upgrade_me.sendItems()
         end
         allele2Slot = nil
     else
-        if allele1Slot ~= assistantDroneSlot then
+        if mutation.parents[1] == mutation.parents[2] then
+            allele2Slot = allele1Slot
+        elseif allele1Slot ~= assistantDroneSlot then
             robot.select(allele1Slot)
             upgrade_me.sendItems()
         end
@@ -864,6 +867,7 @@ function M.newSpecies(species, mutation)--突变新品种并优化基因
         upgrade_me.sendItems()
         assistantDroneSlot = nil
     end
+    --执行突变
     if exchanged then
         robot.select(allele1Slot--[[@as number]])
         upgrade_me.sendItems(robot.count(allele1Slot--[[@as number]])-1)
