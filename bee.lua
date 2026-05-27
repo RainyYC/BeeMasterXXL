@@ -30,7 +30,7 @@ local function initialize()
 end
 
 local function main()
-    io.write("请输入需要突变的蜜蜂:")
+    print("请输入需要培育的蜜蜂:")
     local species = io.read()
     if mutations[species] then
         strategy.task(species)

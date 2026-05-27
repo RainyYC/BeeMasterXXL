@@ -48,83 +48,145 @@ function M.mutate(princessSlot, droneSlot, targetSpecies, mutation)--单步突�
         allele1Genes[chromosome] = bot.inventory[princessSlot][chromosome][1]
         allele2Genes[chromosome] = bot.inventory[droneSlot][chromosome][2]
     end
-    if mutation.dimension then
-        error(string.format("错误的调用strategy.mutate(%d, %d, %s)，当前突变仅在特定维度发生",princessSlot, droneSlot, mutation.name))
-    end
-    if mutation.foundation and not bot.checkItem({name = mutation.foundation.name, damage = mutation.foundation.damage}) then
-        doUntil(function ()
-            return bot.checkItem({name = mutation.foundation.name, damage = mutation.foundation.damage})
-        end, "缺少突变所需的基石："..mutation.foundation.label)
-    end
-    --2.执行突变
     local previousLabel = bot.inventoryLabel
     bot.inventoryLabel = "mutate:"..targetSpecies
     bot.inventory[droneSlot].inventoryLabel = bot.inventoryLabel
-    local function nextGeneration(droneSlot)--追踪公主蜂
-        device.nextGeneration(princessSlot, droneSlot, mutation)
-        princessSlot = nil
-        for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
-            if bot.inventory[slot].type == "beePrincess" then
-                if princessSlot then
-                    error("错误的调用strategy.mutate().nextGeneration，突变过程中出现了两只公主蜂")
-                end
-                princessSlot = slot
-            end
-        end
-        if not princessSlot then
-            error("错误的调用strategy.mutate().nextGeneration，突变过程中未找到公主蜂")
-        end
-    end
-    nextGeneration(droneSlot)
-    droneSlot = nil
     local targetBeeSlots = {}
-    local allele11, allele12, allele22 = {}, {}, {}
-    while true do
-        targetBeeSlots = {}
-        allele11, allele12, allele22 = {}, {}, {}
-        for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
-            if bot.inventory[slot].type == "beeDrone" then
-                local d1, d2 = bot.inventory[slot].species[1], bot.inventory[slot].species[2]
-                if d1 == targetSpecies or d2 == targetSpecies then
+    if mutation.dimension then
+    --2.执行突变(手动突变分支)
+        device.destruct()
+        print(mutation.name.."蜂突变仅在维度 "..mutation.dimension.." 发生，请手动前往指定维度突变，将发生突变的蜜蜂与公主蜂放回物品栏")
+        while true do
+            local input
+            while input ~= "Y" and input ~= "y" do
+                io.write("确认突变完成并检查物品栏[Y/n]:")
+                input = io.read()
+                if input == "N" or input == "n" then
+                    error("已取消突变")
+                end
+            end
+            princessSlot = nil
+            targetBeeSlots = {}
+            for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
+                if bot.inventory[slot].name == "Forestry:beePrincessGE" then
+                    if princessSlot then
+                        princessSlot = "错误：出现了两只公主蜂"
+                        break
+                    end
+                    princessSlot = slot
+                    if bot.inventory[slot].species[1] == targetSpecies or bot.inventory[slot].species[2] == targetSpecies then
+                        table.insert(targetBeeSlots, 1, slot)
+                    end
+                end
+                if bot.inventory[slot].name == "Forestry:beeDroneGE" and (bot.inventory[slot].species[1] == targetSpecies or bot.inventory[slot].species[2] == targetSpecies) then
                     table.insert(targetBeeSlots, slot)
-                elseif (d1 == mutation.parents[1] and d2 == mutation.parents[2]) or (d1 == mutation.parents[2] and d2 == mutation.parents[1]) then
-                    table.insert(allele12, slot)
-                elseif d1 == mutation.parents[1] and d2 == mutation.parents[1] then
-                    table.insert(allele11, slot)
-                elseif d1 == mutation.parents[2] and d2 == mutation.parents[2] then
-                    table.insert(allele22, slot)
+                end
+            end
+            if next(targetBeeSlots) and type(princessSlot) == "number" then
+                break
+            else
+                if type(princessSlot) == "string" then
+                    print("错误：出现了两只公主蜂")
+                elseif type(princessSlot) == "number" then
+                    print("未找到突变成功的蜜蜂")
                 else
-                    robot.select(slot)
+                    print("未找到公主蜂")
+                end
+            end
+        end
+    else
+    --2.执行突变(自动突变分支)
+        if mutation.foundation and not bot.checkItem({name = mutation.foundation.name, damage = mutation.foundation.damage}) then
+            doUntil(function ()
+                return bot.checkItem({name = mutation.foundation.name, damage = mutation.foundation.damage})
+            end, "缺少突变所需的基石："..mutation.foundation.label)
+        end
+        local function nextGeneration(droneSlot)--追踪公主蜂
+            device.nextGeneration(princessSlot, droneSlot, mutation)
+            princessSlot = nil
+            for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
+                if bot.inventory[slot].type == "beePrincess" then
+                    if princessSlot then
+                        error("错误的调用strategy.mutate().nextGeneration，突变过程中出现了两只公主蜂")
+                    end
+                    princessSlot = slot
+                end
+            end
+            if not princessSlot then
+                error("错误的调用strategy.mutate().nextGeneration，突变过程中未找到公主蜂")
+            end
+        end
+        nextGeneration(droneSlot)
+        droneSlot = nil
+        local allele11, allele12, allele22 = {}, {}, {}
+        while true do
+            targetBeeSlots = {}
+            allele11, allele12, allele22 = {}, {}, {}
+            for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
+                if bot.inventory[slot].type == "beeDrone" then
+                    local d1, d2 = bot.inventory[slot].species[1], bot.inventory[slot].species[2]
+                    if d1 == targetSpecies or d2 == targetSpecies then
+                        table.insert(targetBeeSlots, slot)
+                    elseif (d1 == mutation.parents[1] and d2 == mutation.parents[2]) or (d1 == mutation.parents[2] and d2 == mutation.parents[1]) then
+                        table.insert(allele12, slot)
+                    elseif d1 == mutation.parents[1] and d2 == mutation.parents[1] then
+                        table.insert(allele11, slot)
+                    elseif d1 == mutation.parents[2] and d2 == mutation.parents[2] then
+                        table.insert(allele22, slot)
+                    else
+                        robot.select(slot)
+                        robot.dropUp()
+                    end
+                end
+            end
+            --丢弃杂蜂
+            for _, allele in pairs({allele11, allele12, allele22}) do
+                for i=#allele,4,-1 do
+                    robot.select(allele[i])
                     robot.dropUp()
+                    table.remove(allele, i)
                 end
             end
-        end
-        --丢弃杂蜂
-        for _, allele in pairs({allele11, allele12, allele22}) do
-            for i=#allele,4,-1 do
-                robot.select(allele[i])
-                robot.dropUp()
-                table.remove(allele, i)
+            if bot.inventory[princessSlot].species[1] == targetSpecies or bot.inventory[princessSlot].species[2] == targetSpecies then
+                table.insert(targetBeeSlots, 1, princessSlot)
             end
-        end
-        local p1, p2 = bot.inventory[princessSlot].species[1], bot.inventory[princessSlot].species[2]
-        if p1 == targetSpecies or p2 == targetSpecies then
-            table.insert(targetBeeSlots, 1, princessSlot)
-        end
-        if #targetBeeSlots > 0 then
-            break
-        end
-        if p1 == p2 then
-            if p1 == mutation.parents[1] then
-                local droneSlot = allele22[1] or allele12[1]
-                if droneSlot then
-                    nextGeneration(droneSlot)
+            if #targetBeeSlots > 0 then
+                break
+            end
+            if p1 == p2 then
+                if p1 == mutation.parents[1] then
+                    local droneSlot = allele22[1] or allele12[1]
+                    if droneSlot then
+                        nextGeneration(droneSlot)
+                    else
+                        bot.inventoryLabel = previousLabel
+                        return nil, princessSlot
+                    end
+                elseif p1 == mutation.parents[2] then
+                    local droneSlot = allele11[1] or allele12[1]
+                    if droneSlot then
+                        nextGeneration(droneSlot)
+                    else
+                        bot.inventoryLabel = previousLabel
+                        return nil, princessSlot
+                    end
                 else
                     bot.inventoryLabel = previousLabel
-                    return nil, princessSlot
+                    return nil, princessSlot, allele22[1] or allele12[1]
                 end
-            elseif p1 == mutation.parents[2] then
-                local droneSlot = allele11[1] or allele12[1]
+            elseif (p1 == mutation.parents[1] and p2 == mutation.parents[2]) or (p1 == mutation.parents[2] and p2 == mutation.parents[1]) then
+                local lack11 = #allele11 == 1 and robot.count(allele11[1]) == 1
+                local lack22 = #allele22 == 1 and robot.count(allele22[1]) == 1
+                local droneSlot
+                if #allele11 == 0 or #allele22 == 0 then
+                    droneSlot = allele12[1] or allele11[1] or allele22[1]
+                elseif lack11 and not lack22 then
+                    droneSlot = allele11[1] or allele12[1] or allele22[1]
+                elseif lack22 and not lack11 then
+                    droneSlot = allele22[1] or allele12[1] or allele11[1]
+                else
+                    droneSlot = allele12[1] or allele11[1] or allele22[1]
+                end
                 if droneSlot then
                     nextGeneration(droneSlot)
                 else
@@ -133,30 +195,8 @@ function M.mutate(princessSlot, droneSlot, targetSpecies, mutation)--单步突�
                 end
             else
                 bot.inventoryLabel = previousLabel
-                return nil, princessSlot, allele22[1] or allele12[1]
+                return nil, princessSlot, allele12[1] or allele22[1] or allele11[1]
             end
-        elseif (p1 == mutation.parents[1] and p2 == mutation.parents[2]) or (p1 == mutation.parents[2] and p2 == mutation.parents[1]) then
-            local lack11 = #allele11 == 1 and robot.count(allele11[1]) == 1
-            local lack22 = #allele22 == 1 and robot.count(allele22[1]) == 1
-            local droneSlot
-            if #allele11 == 0 or #allele22 == 0 then
-                droneSlot = allele12[1] or allele11[1] or allele22[1]
-            elseif lack11 and not lack22 then
-                droneSlot = allele11[1] or allele12[1] or allele22[1]
-            elseif lack22 and not lack11 then
-                droneSlot = allele22[1] or allele12[1] or allele11[1]
-            else
-                droneSlot = allele12[1] or allele11[1] or allele22[1]
-            end
-            if droneSlot then
-                nextGeneration(droneSlot)
-            else
-                bot.inventoryLabel = previousLabel
-                return nil, princessSlot
-            end
-        else
-            bot.inventoryLabel = previousLabel
-            return nil, princessSlot, allele12[1] or allele22[1] or allele11[1]
         end
     end
     --3.丢弃杂蜂并返回
@@ -217,7 +257,7 @@ function M.purify(princessSlot, droneSlot, targetGenes, assistantDroneSlot, labe
         local gene = bot.inventory[princessSlot][chromosome]
         --校验目标基因是否存在
         if gene[1] ~= targetGenes[chromosome] and gene[2] ~= targetGenes[chromosome] and bot.inventory[droneSlot][chromosome][1] ~= targetGenes[chromosome] and bot.inventory[droneSlot][chromosome][2] ~= targetGenes[chromosome] 
-        --and bot.inventory[assistantDroneSlot][chromosome][1] ~= targetGenes[chromosome] and bot.inventory[assistantDroneSlot][chromosome][2] ~= targetGenes[chromosome] or bot.inventory[assistantDroneSlot][chromosome][1] ~= bot.inventory[assistantDroneSlot][chromosome][2] then
+        --and bot.inventory[assistantDroneSlot][chromosome][1] ~=  targetGenes[chromosome] and bot.inventory[assistantDroneSlot][chromosome][2] ~= targetGenes[chromosome] or bot.inventory[assistantDroneSlot][chromosome][1] ~= bot.inventory[assistantDroneSlot][chromosome][2] then
         and bot.inventory[assistantDroneSlot][chromosome][1] ~= targetGenes[chromosome] and bot.inventory[assistantDroneSlot][chromosome][2] ~= targetGenes[chromosome] then--初始凛冬雄蜂不纯合的临时解决方案，就这么先跑着吧，哪天出问题了再改
             error("错误的调用strategy.purify("..tostring(princessSlot)..","..tostring(droneSlot)..","..tostring(chromosome).."="..tostring(targetGenes[chromosome])..")")
         --分类
@@ -928,9 +968,67 @@ function M.newSpecies(species, mutation)--突变新品种并优化基因
     return droneSlot, princessSlot
 end
 
+function M.optimizeSpecies(species)--优化现有品种
+    local droneTag = beeData.getDroneTag(species)
+    if not droneTag then
+        error(string.format("错误的调用strategy.optimizeSpecies(%s)，该品种不存在", species))
+    end
+    local previousLabel = bot.inventoryLabel
+    bot.inventoryLabel = "optimizeSpecies:"..species
+    local droneSlot = bot.checkItem({name="Forestry:beeDroneGE",tag=droneTag}, 16)
+    if not droneSlot then
+        error(string.format("错误的调用strategy.optimizeSpecies(%s)，未找到目标品种的雄蜂", species))
+    end
+    local princessSlot = bot.checkItem({name="Forestry:beePrincessGE",tag=beeData.getPrincessTag(true)}, 1)
+    if not princessSlot then
+        error(string.format("错误的调用strategy.optimizeSpecies(%s)，缺少公主蜂", species))
+    end
+    local assistantDroneSlot = M.getAssistantDrones()
+    droneSlot, princessSlot = M.purify(princessSlot, droneSlot, beeData.getTargetGenes(species), assistantDroneSlot, ":optimize")
+    for _,slot in pairs(bot.getItemsWithLabel(bot.inventoryLabel)) do
+        if slot ~= droneSlot and slot ~= princessSlot then
+            robot.select(slot)
+            upgrade_me.sendItems()
+        end
+    end
+    bot.inventoryLabel = previousLabel
+    bot.inventory[droneSlot].inventoryLabel = previousLabel
+    bot.inventory[princessSlot].inventoryLabel = previousLabel
+    return droneSlot, princessSlot
+end
+
 function M.task(species)--制定突变链
+    --检查目标是否已存在
+    if beeData.initialized and beeData.getDroneTag(species) then
+        print("目标品种已存在，正在优化基因...")
+        local droneSlot, princessSlot = M.optimizeSpecies(species)
+        robot.select(droneSlot)
+        upgrade_me.sendItems()
+        robot.select(princessSlot)
+        upgrade_me.sendItems()
+        print("优化完成！")
+        device.destruct()
+        return
+    end
     --计算突变路径
     print("计算突变路径")
+    do
+        local targetTag = beeData.getDroneTag(species)
+        if targetTag then
+            local targetSlot = bot.checkItem({name="Forestry:beeDroneGE",tag=targetTag}, 1)
+            if targetSlot then
+                local previousLabel = bot.inventoryLabel
+                bot.inventoryLabel = "newSpecies:"..species
+                local optimizedDroneSlot, optimizedPrincessSlot = M.purify(nil, targetSlot, nil, nil, ":newSpecies")
+                bot.inventoryLabel = previousLabel
+                if optimizedDroneSlot and optimizedPrincessSlot then
+                    return optimizedDroneSlot, optimizedPrincessSlot
+                else
+                    error(string.format("优化%s蜂过程中发生基因丢失", species))
+                end
+            end
+        end
+    end
     local mutationChain, lackSpecies = {}, {}
     if not beeData.initialized then
         if not beeData.getDroneTag("forestry.speciesWintry") then
@@ -1070,53 +1168,29 @@ function M.task(species)--制定突变链
         io.write("是否继续执行突变？[Y/n]：")
         local answer = io.read()
         if answer == "Y" or answer == "y" then
-            return true
+            return false
         else
             print("突变任务已取消")
-            return false
+            return true
         end
     end
-    if next(requiredDimension) then
-        print("以下突变需要在员工前往对应维度手动进行：")
-        for i, condition in pairs(requiredDimension) do
-            print(string.format("  - %s蜂突变需要维度%s", mutationChain[i][2].name, condition))
-        end
-        return
-        --[[if not confirmContinue() then
-            return
-        end]]
-    end
-    if next(requiredDate) then
-        print("以下突变需要在对应日期进行：")
-        for i, condition in pairs(requiredDate) do
-            print(string.format("  - %s蜂突变仅在%s到%s之间发生", mutationChain[i][2].name, condition[1], condition[2]))
-        end
-        if not confirmContinue() then
-            return
-        end
-    end
-    if next(requiredLunarPhase) then
-        print("以下突变需要在对应月相进行：")
-        for i, condition in pairs(requiredLunarPhase) do
-            if type(condition) == "table" then
-                print(string.format("  - %s蜂突变需要月相在%s到%s之间", mutationChain[i][2].name, condition[1], condition[2]))
-            else
-                print(string.format("  - %s蜂突变需要月相为%s", mutationChain[i][2].name, condition))
+    local function confirm(conditionTable, conditionMessage, rangeMessage, sigleMessage)
+        if next(conditionTable) then
+            print(conditionMessage)
+            for i, condition in pairs(conditionTable) do
+                if type(condition) == "table" then
+                    print(string.format(rangeMessage, mutationChain[i][2].name, condition[1], condition[2]))
+                else
+                    print(string.format(sigleMessage, mutationChain[i][2].name, condition))
+                end
             end
-        end
-        if not confirmContinue() then
-            return
+            return confirmContinue()
         end
     end
-    if next(requiredTime) then
-        print("以下突变需要在对应时间进行：")
-        for i, condition in pairs(requiredTime) do
-            print(string.format("  - %s蜂突变仅在%s时发生", mutationChain[i][2].name, condition))
-        end
-        if not confirmContinue() then
-            return
-        end
-    end
+    if confirm(requiredDimension, "以下突变需要在员工前往对应维度手动进行：", nil, "  - %s蜂突变需要维度 %s") then return end
+    if confirm(requiredDate, "以下突变需要在对应日期进行：", "  - %s蜂突变仅在%s到%s之间发生", nil) then return end
+    if confirm(requiredLunarPhase, "以下突变需要在对应月相进行：", "  - %s蜂突变需要月相在%s到%s之间", "  - %s蜂突变需要月相为%s") then return end
+    if confirm(requiredTime, "以下突变需要在对应时间进行：", nil, "  - %s蜂突变仅在%s时发生") then return end
     print("突变条件核验完毕，开始执行突变")
     --执行
     if not beeData.initialized then
