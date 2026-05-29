@@ -1,7 +1,7 @@
 local component = require("component")
 --local serialization = require("serialization")
 
-local strategy, mutations, device
+local strategy, mutations, device, speciesLookup
 
 local function initialize()
     if not component.inventory_controller then
@@ -27,15 +27,51 @@ local function initialize()
     mutations = require("mutations")
     device = require("device")
     strategy = require("strategy")
+    speciesLookup = require("speciesLookup")
+    speciesLookup.initialize(mutations)
+end
+
+local function handleSingleMatch(result)
+    print(string.format("找到品种: %s [%s]", result.name, result.id))
+    strategy.task(result.id)
+end
+
+local function handleMultipleMatches(result)
+    print(string.format("找到 %d 个匹配的品种:", #result.matches))
+    for i, m in ipairs(result.matches) do
+        print(string.format("  [%d] %s [%s]", i, m.name, m.id))
+    end
+    while true do
+        print("请输入序号选择目标品种（输入 0 重新搜索）:")
+        local choice = tonumber(io.read())
+        if choice and choice == 0 then
+            return false
+        elseif choice and choice >= 1 and choice <= #result.matches then
+            local species = result.matches[choice].id
+            strategy.task(species)
+            return true
+        else
+            print("无效的选择，请重新输入")
+        end
+    end
 end
 
 local function main()
-    print("请输入需要培育的蜜蜂:")
-    local species = io.read()
-    if mutations[species] then
-        strategy.task(species)
-    else
-        error("未发现突变路径")
+    while true do
+        print("请输入需要培育的蜜蜂（支持中文名或品种ID）:")
+        local input = io.read()
+        local result = speciesLookup.find(input)
+        if not result then
+            print("未找到匹配的蜜蜂品种，请重新输入")
+        elseif result.single then
+            handleSingleMatch(result)
+            break
+        elseif result.multiple then
+            local done = handleMultipleMatches(result)
+            if done then
+                break
+            end
+        end
     end
 end
 
