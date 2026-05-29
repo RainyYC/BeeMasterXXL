@@ -2,7 +2,7 @@ local shell = require("shell")
 local filesystem = require("filesystem")
 local internet = require("internet")
 
-local repo = "https://raw.githubusercontent.com/hxync/BeeMasterXXL/"
+local repo = "https://raw.githubusercontent.com/RainyYC/BeeMasterXXL/"
 local branch = "main"
 local paths = { "lib" }
 
@@ -20,6 +20,7 @@ local scripts = {
     "mutations.lua",
     "device.lua",
     "apiary.lua",
+    "speciesLookup.lua",
     "lib/inflate-bwo.lua",
     "lib/nbt.lua",
     "lib/zzlib.lua"
